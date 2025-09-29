@@ -16,8 +16,7 @@ def _fallback_answer(query: str, docs: List) -> str:
     """Answer purely from retrieved docs when LLM is unavailable (401/429)."""
     if not docs:
         return "I couldn’t find anything in the knowledge base for that yet."
-    pieces = []
-    seen = set()
+    pieces, seen = [], set()
     for d in docs[:4]:
         text = (d.page_content or "").strip()
         name = (d.metadata.get("source") or d.metadata.get("file_path") or "kb.md").split("/")[-1]
@@ -40,11 +39,12 @@ def make_chain(db_dir="vector_store"):
     doc_chain = create_stuff_documents_chain(llm, prompt)
 
     def run(query: str):
+        # Newer API: invoke()
         docs = retriever.invoke(query)
         try:
             return doc_chain.invoke({"question": query, "context": docs})
         except Exception:
-            # 401 invalid key, 429 insufficient_quota, etc.
+            # 401 invalid key, 429 quota, etc.
             return _fallback_answer(query, docs)
 
     return run
