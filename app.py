@@ -25,7 +25,13 @@ def _needs_ingest(db_dir: str) -> bool:
 
 if _needs_ingest(DB_DIR):
     with st.spinner("Building vector store (first run)…"):
-        build_store()
+        try:
+            build_store()
+            st.success("Vector store ready.")
+        except Exception as e:
+            st.error("Ingest failed. Ensure knowledge_base/*.md exist and have content.")
+            st.exception(e)
+
 
 # --- Build (and cache) the chain
 @st.cache_resource(show_spinner=False)
