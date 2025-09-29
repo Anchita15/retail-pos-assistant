@@ -1,9 +1,9 @@
-# ingest.py — robust build: never creates an empty index; clear logs
+# ingest.py — builds a guaranteed non-empty Chroma index
 import pathlib
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 
 KB_DIR = "knowledge_base"
 DB_DIR = "vector_store"
@@ -16,7 +16,7 @@ This was auto-created because no markdown files were found or they were empty.
 - Software: transactions, pricing/tax, promotions, inventory, returns, reporting.
 - Payments: processor/gateway, tokenization, offline queue.
 - Data: item/price/offer services, loyalty, audit logs, reconciliation.
-- Cloud: APIs, sync, monitoring/observability, backups/DR.
+- Cloud: sync APIs, monitoring, backups/DR.
 """
 
 def _nonempty_md_files(kb: pathlib.Path) -> list[pathlib.Path]:
@@ -44,28 +44,22 @@ def build_store(src_dir=KB_DIR, db_dir=DB_DIR):
     paths = ensure_kb_has_content()
     print("KB files to ingest:", paths)
 
-    # Load docs
     docs = []
     for f in paths:
         docs += TextLoader(f, encoding="utf-8").load()
     print("Loaded docs:", len(docs))
 
-    # Split
     splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=120)
     chunks = splitter.split_documents(docs)
-    print("Initial chunks:", len(chunks))
-
-    # If somehow zero chunks, create starter and try once more
-    if len(chunks) == 0:
+    if not chunks:
+        # create a minimal starter then re-split
         starter = pathlib.Path(src_dir) / "starter.md"
         if not starter.exists():
             starter.write_text(STARTER, encoding="utf-8")
         docs = TextLoader(str(starter), encoding="utf-8").load()
         chunks = splitter.split_documents(docs)
-        print("Chunks after starter:", len(chunks))
 
-    # Build vector store (guaranteed non-empty)
-    embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     Chroma.from_documents(chunks, embedding=embed, persist_directory=db_dir)
     print(f"Indexed {len(chunks)} chunks → {db_dir}")
 

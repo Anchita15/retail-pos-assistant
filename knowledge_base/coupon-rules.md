@@ -1,20 +1,15 @@
 # Coupon Rules
 
-Coupons help drive sales, but they must follow store policies and system rules.
-
-## General Rules
-- Coupons must be applied **before final payment**.
-- The system accepts both **digital** (app, email, SMS) and **paper** coupons.
-- Coupons must have a valid **expiration date** and **store ID**.
+## General
+- Apply coupons **before final payment**.
+- Accept both **digital** and **paper** coupons.
+- Must have valid **expiration** and **store ID**.
 
 ## Restrictions
-- Limit one coupon per item, unless otherwise specified.
-- Coupons cannot be combined with **employee discounts**.
-- “Buy One Get One” (BOGO) offers only apply to eligible SKUs.
-- Manufacturer coupons cannot exceed the selling price of the item.
+- One coupon per item (unless stated otherwise).
+- Cannot combine with **employee discounts**.
+- BOGO applies only to eligible SKUs.
+- Manufacturer coupons cannot exceed item price.
 
 ## Troubleshooting
-- If a coupon is rejected, verify:
-  - Item SKU matches coupon eligibility.
-  - Coupon has not expired.
-  - Coupon was not already used.
+- If rejected, verify SKU eligibility, date, and whether it was already used.

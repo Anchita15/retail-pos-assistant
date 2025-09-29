@@ -13,8 +13,10 @@ Point of Sale (POS) systems are the backbone of retail operations. They combine 
 
 - **Software**
   - Transaction management and sales recording
+  - Pricing/tax and promotions
   - Inventory control and stock monitoring
-  - Customer loyalty program integration
+  - Returns and refunds
+  - Customer loyalty integration
   - Reporting and analytics
 
 - **Networking / Cloud**
