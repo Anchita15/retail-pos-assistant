@@ -1,4 +1,4 @@
-# ingest.py - robust build: creates a starter note if KB is empty
+# ingest.py
 import glob, os, pathlib
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -13,8 +13,9 @@ This was auto-created because no markdown files were found or they were empty.
 
 ## POS Basics
 - POS client, pricing/tax, promotions/loyalty, inventory, payments, data stores.
-- Event-driven integrations; idempotent endpoints; retries with backoff."""
- 
+- Event-driven integrations; idempotent endpoints; retries with backoff.
+"""
+
 def ensure_kb_has_content() -> list[str]:
     kb = pathlib.Path(KB_DIR)
     kb.mkdir(parents=True, exist_ok=True)
@@ -42,12 +43,6 @@ def build_store(src_dir=KB_DIR, db_dir=DB_DIR):
     splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=120)
     chunks = splitter.split_documents(docs)
     print("Total chunks:", len(chunks))
-    if not chunks:
-        # safety guard (shouldn’t happen with starter)
-        starter = pathlib.Path(src_dir) / "starter.md"
-        starter.write_text(STARTER, encoding="utf-8")
-        docs = TextLoader(str(starter), encoding="utf-8").load()
-        chunks = splitter.split_documents(docs)
 
     embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     Chroma.from_documents(chunks, embedding=embed, persist_directory=db_dir)
