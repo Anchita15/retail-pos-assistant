@@ -1,4 +1,5 @@
-
+# rag.py — RAG chain with automatic fallback when OpenAI fails
+from typing import List
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -10,6 +11,22 @@ You are a Retail POS assistant. Answer succinctly.
 Cite source filenames in brackets like [pos-overview.md].
 If a tool call would help, suggest it explicitly.
 """
+
+def _fallback_answer(query: str, docs: List) -> str:
+    """Build a readable answer purely from retrieved docs (no LLM)."""
+    if not docs:
+        return "I couldn’t find anything in the knowledge base for that yet."
+    # Merge a few chunks and show where they came from
+    pieces = []
+    seen = set()
+    for d in docs[:4]:
+        text = (d.page_content or "").strip()
+        name = (d.metadata.get("source") or d.metadata.get("file_path") or "kb.md").split("/")[-1]
+        if text:
+            pieces.append(f"**From {name}:**\n{text}")
+            seen.add(name)
+    cites = " ".join(f"[{n}]" for n in seen)
+    return f"**Retrieved answer (fallback, no LLM):**\n\n" + "\n\n".join(pieces) + ("\n\n" + cites if cites else "")
 
 def make_chain(db_dir="vector_store"):
     embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
@@ -24,8 +41,13 @@ def make_chain(db_dir="vector_store"):
     doc_chain = create_stuff_documents_chain(llm, prompt)
 
     def run(query: str):
-        docs = retriever.get_relevant_documents(query)
-        answer = doc_chain.invoke({"question": query, "context": docs})
-        return answer
+        # Newer API: invoke()
+        docs = retriever.invoke(query)
+        # Try LLM path first
+        try:
+            return doc_chain.invoke({"question": query, "context": docs})
+        except Exception:
+            # Any OpenAI error (401 invalid key, 429 quota, etc.) -> retrieval-only fallback
+            return _fallback_answer(query, docs)
 
     return run
