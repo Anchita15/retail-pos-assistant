@@ -10,21 +10,27 @@ Point of Sale (POS) systems are the backbone of retail operations. They combine 
   - Receipt printers
   - Cash drawers
   - Payment card readers (chip, swipe, contactless/NFC)
+  - Customer-facing displays
 
 - **Software**
-  - Transaction management and sales recording
-  - Pricing/tax and promotions
-  - Inventory control and stock monitoring
-  - Returns and refunds
-  - Customer loyalty integration
-  - Reporting and analytics
+  - Transaction & returns flow
+  - Pricing, taxes, promotions, coupons
+  - Inventory lookups & reservations
+  - Loyalty & CRM integrations
+  - Reporting, cash-ups, and audits
 
 - **Networking / Cloud**
-  - Secure connectivity with store servers or cloud
-  - Real-time data synchronization across locations
-  - Cloud backup and disaster recovery
+  - Secure LAN/Wi-Fi with VLANs for payment devices
+  - Real-time sync to cloud or HQ
+  - Offline-safe queues and conflict resolution
 
-- **User Interfaces**
-  - Cashier touchscreen dashboards
-  - Self-checkout kiosks
-  - Mobile POS apps for in-aisle checkout
+- **UX**
+  - Cashier touchscreen with fast tender keys
+  - Self-checkout
+  - Mobile POS for line-busting
+
+## Non-Functional Requirements
+- Reliability & offline operation
+- PCI DSS & P2PE for card data
+- Observability (logs, metrics, traces)
+- Role-based access control & audit trails

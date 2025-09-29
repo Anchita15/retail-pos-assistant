@@ -1,63 +1,84 @@
-# app.py - Streamlit UI for the Retail POS LLM Assistant
 import os, shutil, pathlib
 import streamlit as st
-from ingest import build_store
+
+from ingest import build_store, KB_DIR, DB_DIR
 from rag import make_chain
+from agents import price_lookup, inventory_check, issue_ticket
 
-DB_DIR = "vector_store"
-KB_DIR = "knowledge_base"
+st.set_page_config(page_title="Retail POS LLM Assistant", page_icon="🧾", layout="wide")
 
-st.set_page_config(page_title="Retail POS LLM Assistant", page_icon="🧾", layout="centered")
+# --- Status panel
+openai_ok = bool(st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY")))
+groq_ok = bool(st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY")))  # optional
+vecdb_ok = pathlib.Path(DB_DIR).exists() and any(pathlib.Path(DB_DIR).iterdir())
+
+st.sidebar.title("Status")
+st.sidebar.write(f"**GROQ key:** {'✅' if groq_ok else '❌'}")
+st.sidebar.write(f"**OpenAI key:** {'✅' if openai_ok else '❌'}")
+st.sidebar.write(f"**Vector DB:** {'✅' if vecdb_ok else '❌'}")
+st.sidebar.caption("Tip: Add keys in App → Settings → Secrets.")
+
 st.title("Retail POS LLM Assistant 🧾")
 st.caption("RAG + simple agentic tools for retail POS scenarios")
 
+# --- Helpers
 def _needs_ingest(db_dir: str) -> bool:
-    p = pathlib.Path(db_dir)
-    return not (p.exists() and any(p.iterdir()))
+    d = pathlib.Path(db_dir)
+    return (not d.exists()) or (not any(d.iterdir()))
 
-with st.sidebar:
-    st.subheader("Status")
-    has_groq = bool(os.getenv("GROQ_API_KEY"))
-    has_openai = bool(os.getenv("OPENAI_API_KEY"))
-    st.write(f"GROQ key: {'✅' if has_groq else '❌'}")
-    st.write(f"OpenAI key: {'✅' if has_openai else '❌'}")
-    st.write(f"Vector DB: {'✅' if not _needs_ingest(DB_DIR) else '❌'}")
-    st.markdown("---")
-    st.markdown("**Tip:** Add a GROQ or OpenAI key in **App → Settings → Secrets**.")
-
-# Build the vector store on first boot (Cloud-safe)
-if _needs_ingest(DB_DIR):
-    with st.spinner("Building vector store (first run)…"):
-        build_store()
-
+# Build (and cache) the chain
 @st.cache_resource(show_spinner=False)
 def _chain():
     return make_chain(DB_DIR)
 
-st.session_state.chain = _chain()
+# Ensure a usable vector store
+if _needs_ingest(DB_DIR):
+    with st.spinner("Building vector store (first run)…"):
+        build_store()
 
-with st.form("ask"):
-    q = st.text_input("Ask about POS ops, coupons, troubleshooting, etc.")
-    submitted = st.form_submit_button("Answer")
-    if submitted and q.strip():
-        try:
-            answer = st.session_state.chain(q.strip())
-            st.markdown(answer)
-        except Exception as e:
-            # Friendly message for key/billing issues
-            msg = str(e)
-            if "insufficient_quota" in msg or "429" in msg:
-                st.error("Your LLM provider quota was exceeded. Add a **GROQ_API_KEY** in Secrets to use the free Groq model.")
-            elif "invalid_api_key" in msg or "401" in msg:
-                st.error("Invalid or missing API key. Add **GROQ_API_KEY** or **OPENAI_API_KEY** in Secrets.")
-            else:
-                st.error(f"Oops — {e}")
+# auto-repair stale/corrupt Chroma (version mismatch)
+try:
+    st.session_state.chain = _chain()
+except Exception:
+    shutil.rmtree(DB_DIR, ignore_errors=True)
+    with st.spinner("Vector DB looked stale; rebuilding…"):
+        build_store()
+    st.session_state.chain = _chain()
 
-st.markdown("---")
-with st.expander("Quick tools"):
-    sku = st.text_input("SKU for price lookup", key="sku_price", value="SKU123")
-    store = st.text_input("Store ID", key="store_id", value="RTP-001")
-    sku_inv = st.text_input("SKU for inventory", key="sku_inv", value="SKU456")
-    issue = st.text_input("Issue Summary", key="issue_sum", value="POS freeze during payment")
-    notes = st.text_area("Notes", value="Run python ingest.py after editing the markdown files in knowledge_base/ to rebuild the vector store.\nSet GROQ_API_KEY (preferred) or OPENAI_API_KEY in Secrets.")
-    st.caption("This demo uses a small local vector DB; push markdown into `knowledge_base/` and redeploy.")
+# --- UI
+st.subheader("Ask the POS assistant")
+q = st.text_input("Your question", placeholder="e.g., What are key POS components?")
+go = st.button("Ask")
+
+col1, col2 = st.columns([2, 1])
+
+with col2:
+    st.subheader("Agent tools (demo)")
+    sku = st.text_input("SKU", value="SKU-1001")
+    if st.button("Price lookup"):
+        st.write(price_lookup(sku))
+    if st.button("Inventory check"):
+        st.write(inventory_check(sku))
+    if st.button("Open issue ticket"):
+        st.write(issue_ticket(title=f"Issue with {sku}", detail="Scanner not reading"))
+
+with col1:
+    if go and q.strip():
+        if not openai_ok:
+            st.error("OPENAI_API_KEY is missing. Add it in App → Settings → Secrets.")
+        else:
+            with st.spinner("Thinking…"):
+                try:
+                    answer = st.session_state.chain(q)
+                    st.markdown(answer)
+                except Exception as e:
+                    st.error("There was an error generating an answer. Check logs.")
+                    st.exception(e)
+
+st.divider()
+with st.expander("Knowledge base files available"):
+    kb_files = sorted([str(p) for p in pathlib.Path(KB_DIR).glob("**/*.md")])
+    if kb_files:
+        st.code("\n".join(kb_files), language="text")
+    else:
+        st.write("No KB files found.")

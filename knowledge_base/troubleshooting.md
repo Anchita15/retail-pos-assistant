@@ -1,22 +1,21 @@
 # Troubleshooting Guide
 
-### POS Freezes During Payment
-- Restart the POS app.
-- Check network connectivity.
-- Retry after reboot.
-- If recurring, open an incident ticket.
+## Scanners
+- Check USB or power.
+- Verify device appears in OS and driver loaded.
+- Test in Notepad — scans should type digits.
 
-### Receipt Printer Not Working
-- Check paper roll and connections.
-- Power cycle the printer.
-- Run self-test.
+## Printers
+- Paper/thermal roll orientation, cover closed.
+- Use test print. Check IP (for Ethernet printers).
+- Reset print spooler if jobs are stuck.
 
-### Inventory Mismatch
-- Manual data resync.
-- Verify offline adjustments.
-- Re-scan SKU barcodes.
+## Card Readers
+- Ensure network segment and keys injected.
+- Run payment health check tool.
+- If EMV kernel error, power-cycle and re-pair.
 
-### Login Issues
-- Reset password.
-- Verify store role assignment.
-- Reboot client terminal.
+## App
+- If offline, queue transactions locally, retry backoff.
+- Clear local cache if corrupted; re-sync catalog.
+- Capture logs & timestamps for L2 support.

@@ -1,4 +1,3 @@
-# ingest.py - build vector DB from markdown
 import pathlib
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -7,15 +6,14 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 KB_DIR = "knowledge_base"
 DB_DIR = "vector_store"
+COLLECTION = "pos_kb"
 
-STARTER = """# POS basics (starter)
-This file was auto-created because no non-empty markdown was found.
+STARTER = """# Starter Notes (Generated)
+This was auto-created because no markdown files were found or they were empty.
 
-## Key POS components
-- Hardware: terminals, scanners, receipt printers, drawers, payment readers (NFC/chip/swipe)
-- Software: sales/returns, inventory, loyalty, tax, promotions, reporting
-- Payments: gateway, tokenization, PCI, offline queues
-- Ops: price checks, coupons, voids, EOD, reconciliation
+## POS Basics
+- POS client, pricing/tax, promotions/loyalty, inventory, payments, data stores.
+- Event-driven integrations; idempotent endpoints; retries with backoff.
 """
 
 def ensure_kb_has_content() -> list[str]:
@@ -40,15 +38,17 @@ def build_store(src_dir=KB_DIR, db_dir=DB_DIR):
     docs = []
     for f in paths:
         docs += TextLoader(f, encoding="utf-8").load()
-    splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=150)
-    chunks = splitter.split_documents(docs)
-    if not chunks:
-        # Safety net: put one chunk so Chroma never gets []
-        from langchain_core.documents import Document
-        chunks = [Document(page_content="Fallback chunk: POS overview starter.")]
-    embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    Chroma.from_documents(chunks, embedding=embed, persist_directory=db_dir)
-    print(f"Indexed {len(chunks)} chunks → {db_dir}")
 
-if __name__ == "__main__":
-    build_store()
+    splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=120)
+    chunks = splitter.split_documents(docs)
+
+    embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+    Chroma.from_documents(
+        chunks,
+        embedding=embed,
+        persist_directory=db_dir,
+        collection_name=COLLECTION,
+    ).persist()
+
+    print(f"Indexed {len(chunks)} chunks → {db_dir}")
