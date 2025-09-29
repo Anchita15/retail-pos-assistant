@@ -4,10 +4,18 @@ langchain-core==0.3.76
 langchain-community==0.3.30
 langchain-openai==0.3.33
 langchain-text-splitters==0.3.11
+
+# Vector store (kept compatible, no ONNX surprises on Cloud)
 langchain-chroma==0.1.4
-langchain-huggingface==0.1.2
-chromadb==1.1.0
+chromadb==0.5.11
+
+# Embeddings (CPU)
 sentence-transformers==5.1.1
-tiktoken==0.11.0
+
+# Use Groq (free tier) to avoid OpenAI quota issues
+langchain-groq==0.3.8
+groq==0.32.0
+
 python-dotenv==1.1.1
 pydantic==2.11.9
+tiktoken==0.11.0

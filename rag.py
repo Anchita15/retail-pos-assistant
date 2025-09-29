@@ -1,52 +1,56 @@
-# rag.py — RAG chain with LLM + robust KB-only fallback
+# rag.py - retrieval + LLM chain
+import os
 from typing import List
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
 
-try:
+# Choose model provider: prefer GROQ (free), fallback to OpenAI
+def _llm():
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        from langchain_groq import ChatGroq
+        # Fast + inexpensive:
+        return ChatGroq(model="llama-3.1-8b-instant", temperature=0.1, max_tokens=512)
     from langchain_openai import ChatOpenAI
-    _HAS_OPENAI = True
-except Exception:
-    _HAS_OPENAI = False
+    # Use gpt-4o-mini for cost, or override via OPENAI_MODEL in secrets
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    return ChatOpenAI(model=model, temperature=0.1, max_tokens=512)
 
-SYSTEM = (
-    "You are a Retail POS assistant. Be succinct. "
-    "Cite source filenames in brackets like [pos-overview.md]."
-)
+SYSTEM = """You are a Retail POS assistant. 
+Answer succinctly. If context lacks an answer, say you don’t know and suggest related topics to click in the app.
+Use bullet points where helpful."""
 
-def _fallback_answer(query: str, docs: List) -> str:
-    if not docs:
-        return "I couldn’t find anything in the knowledge base for that yet."
-    seen = set()
-    bullets = []
-    for d in docs[:4]:
-        name = (d.metadata.get("source") or d.metadata.get("file_path") or "kb.md").split("/")[-1]
-        seen.add(name)
-        bullets.append(f"- **{name}**: {d.page_content.strip()[:350]}…")
-    cites = " ".join(f"[{s}]" for s in seen)
-    return f"**KB result (no LLM)**\n\n" + "\n".join(bullets) + (f"\n\n{cites}" if cites else "")
-
-def make_chain(db_dir="vector_store"):
-    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+def _retriever(db_dir: str):
+    embed = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vs = Chroma(persist_directory=db_dir, embedding_function=embed)
-    retriever = vs.as_retriever(search_kwargs={"k": 4})
+    return vs.as_retriever(search_kwargs={"k": 4})
 
-    def run(query: str):
-        docs = retriever.invoke(query)
-        if _HAS_OPENAI:
-            try:
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", SYSTEM),
-                    ("human", "Question: {question}\nContext: {context}")
-                ])
-                chain = create_stuff_documents_chain(llm, prompt)
-                return chain.invoke({"question": query, "context": docs})
-            except Exception:
-                return _fallback_answer(query, docs)
-        else:
-            return _fallback_answer(query, docs)
+def make_chain(db_dir: str):
+    retriever = _retriever(db_dir)
+    llm = _llm()
+
+    prompt = ChatPromptTemplate.from_template(
+        "{system}\n\nContext:\n{context}\n\nQuestion: {question}\n\nAnswer:"
+    )
+
+    def fetch_context(q: str) -> List[Document]:
+        # .invoke() is the new API; .get_relevant_documents() still works
+        try:
+            return retriever.invoke(q)  # returns List[Document]
+        except Exception:
+            return []
+
+    def run(query: str) -> str:
+        docs = fetch_context(query)
+        ctx = "\n\n".join(d.page_content[:1200] for d in docs) if docs else "N/A"
+        chain = prompt | llm | RunnableLambda(lambda m: m.content if hasattr(m, "content") else str(m))
+        reply = chain.invoke({"system": SYSTEM, "context": ctx, "question": query})
+        # Friendly fallback if nothing was found AND reply is generic
+        if (not docs) and ("I don’t know" in reply or "I don't know" in reply or reply.strip() == ""):
+            return "I couldn’t find anything in the knowledge base for that yet."
+        return reply
 
     return run
