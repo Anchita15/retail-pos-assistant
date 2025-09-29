@@ -1,5 +1,5 @@
-# ingest.py
-import glob, os, pathlib
+# ingest.py — robust build: creates a starter note if KB is empty, prints logs
+import pathlib
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma

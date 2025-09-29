@@ -13,10 +13,9 @@ If a tool call would help, suggest it explicitly.
 """
 
 def _fallback_answer(query: str, docs: List) -> str:
-    """Build a readable answer purely from retrieved docs (no LLM)."""
+    """Answer purely from retrieved docs when LLM is unavailable (401/429)."""
     if not docs:
         return "I couldn’t find anything in the knowledge base for that yet."
-    # Merge a few chunks and show where they came from
     pieces = []
     seen = set()
     for d in docs[:4]:
@@ -41,13 +40,11 @@ def make_chain(db_dir="vector_store"):
     doc_chain = create_stuff_documents_chain(llm, prompt)
 
     def run(query: str):
-        # Newer API: invoke()
         docs = retriever.invoke(query)
-        # Try LLM path first
         try:
             return doc_chain.invoke({"question": query, "context": docs})
         except Exception:
-            # Any OpenAI error (401 invalid key, 429 quota, etc.) -> retrieval-only fallback
+            # 401 invalid key, 429 insufficient_quota, etc.
             return _fallback_answer(query, docs)
 
     return run
