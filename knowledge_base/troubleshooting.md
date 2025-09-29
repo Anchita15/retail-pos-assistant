@@ -1,21 +1,37 @@
-# Troubleshooting Playbook (Original Notes)
+# Troubleshooting Guide
 
-A quick field guide for diagnosing POS issues in stores.
+Retail POS systems occasionally face technical issues. This guide outlines common problems and fixes.
 
-## When the POS Freezes During Payment
-1. **Capture context**: transaction ID, last API called, timestamps, and cashier ID.
-2. **Network checks**: verify DNS and gateway reachability; retry with backoff if transient.
-3. **Payment safety**: if authorization state is unknown, query the gateway before retrying to avoid double charges.
-4. **Rollback**: use safe void/reversal APIs; mark the local transaction as pending-review if state cannot be confirmed.
-5. **Logging**: include correlation IDs across services to let support trace the request end-to-end.
+## Common Issues & Fixes
 
-## Inventory Mismatch
-- Reconcile using `transaction.completed` events and a nightly job.
-- Flag negative on-hand as an exception; create a ticket automatically with affected SKUs and store.
+### 1. POS Freezes During Payment
+- Restart the POS application.
+- Check network connectivity.
+- Retry the transaction after reboot.
+- If recurring, escalate with an incident ticket.
 
-## Performance Issues
-- Cache catalog and tax tables with short TTLs.
-- Limit synchronous calls in the checkout path; move non-critical work (analytics, receipts) to async jobs.
+### 2. Receipt Printer Not Working
+- Verify paper roll is loaded correctly.
+- Restart the printer device.
+- Confirm USB or network connection.
+- Run a printer self-test to confirm hardware function.
 
-## Support Handoff
-- Provide a minimal bundle: logs, timestamps, correlation ID, request payloads (with PII masked), and store environment details.
+### 3. Inventory Mismatch
+- Trigger a manual **database resync**.
+- Check if stock adjustments were made offline.
+- Verify SKU barcodes are scanned correctly.
+- Escalate to support if mismatch persists.
+
+### 4. Login or Access Issues
+- Reset cashier password if forgotten.
+- Verify cashier is assigned correct store ID.
+- Restart the client terminal before escalating.
+
+---
+
+## Escalation Guidelines
+If local troubleshooting fails, open a ticket in the system with:
+- Issue summary
+- Store ID
+- Affected SKU(s)
+- Steps already attempted
