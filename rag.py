@@ -1,4 +1,4 @@
-# rag.py - retriever + LLM synthesis chain (no Ollama)
+
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains.combine_documents import create_stuff_documents_chain
